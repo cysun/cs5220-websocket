@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>WebSocket Chat</title>
+<style>
+#display {
+    width: 400px;
+    margin: 1em;
+}
+#message {
+    margin-top: 1em;
+    width: 100%;
+}
+div.message {
+    width: 250px;
+    border: solid black 1px;
+    border-radius: 5px;
+    padding: 1em;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    clear: both;
+}
+div.left { float: left; }
+div.right { float: right; }
+</style>
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script>
+var url = "ws://" + window.location.host + "/cs5220-websocket/chat";
+var websocket = new WebSocket(url);
+
+websocket.onopen = function() { console.log("websocket opened"); }
+
+websocket.onerror = function(event) { alert(event.data); }
+
+websocket.onmessage = function(event) {
+    var div = $("<div></div>").addClass("message").addClass("left");
+    div.text(event.data);
+    $("#message").before(div);
+}
+
+$(function(){
+    $("#message").keyup(function(event){
+        if( event.keyCode == 13 )
+        {
+            var message = $(this).val();
+            websocket.send(message);
+            var div = $("<div></div>").addClass("message").addClass("right");
+            div.text("Me: " + message);
+            $(this).before(div);
+            $(this).val("");
+        }
+   });
+});
+</script>
+</head>
+<body>
+<div id="display">
+  <input id="message" type="text" />
+</div>
+</body>
+</html>
