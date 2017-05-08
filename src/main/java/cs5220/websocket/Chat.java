@@ -100,7 +100,6 @@ public class Chat {
         catch( IOException e )
         {
         }
-        client.end();
     }
 
 }
