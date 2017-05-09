@@ -1,101 +1,86 @@
 package cs5220.websocket;
 
 import java.io.IOException;
-import java.util.Set;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
 import javax.websocket.OnOpen;
 import javax.websocket.Session;
+import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Based on the Tomcat example code at
- * http://svn.apache.org/viewvc/tomcat/trunk/webapps/examples/WEB-INF/classes/websocket/
- */
-@ServerEndpoint("/chat")
+@ServerEndpoint("/chat/{name}")
 public class Chat {
 
-    private static final String GUEST_PREFIX = "Guest";
-
-    private static final AtomicInteger connectionIds = new AtomicInteger( 0 );
-
-    private static final Set<Chat> connections = new CopyOnWriteArraySet<>();
-
-    private static final Logger logger = LoggerFactory.getLogger( Chat.class );
-
-    private final String nickname;
+    private String name;
 
     private Session session;
 
-    public Chat()
-    {
-        nickname = GUEST_PREFIX + connectionIds.getAndIncrement();
-    }
+    private static Map<String, Session> clients = new ConcurrentHashMap<String, Session>();
+
+    private static final Logger logger = LoggerFactory.getLogger( Chat.class );
 
     @OnOpen
-    public void start( Session session )
+    public void onOpen( @PathParam("name") String name, Session session )
     {
+        this.name = name;
         this.session = session;
-        connections.add( this );
-        send( this, "Welcome to the chat, " + nickname + "!" );
-        broadcast( nickname + " has joined." );
-        logger.info( nickname + " has joined." );
+        clients.put( name, session );
+        logger.info( name + " has joined." );
     }
 
     @OnClose
-    public void end()
+    public void onClose()
     {
-        connections.remove( this );
-        broadcast( nickname + " has disconnected." );
-        logger.info( nickname + " has disconnected." );
+        clients.remove( name );
+        logger.info( name + " has disconnected." );
     }
 
     @OnError
     public void onError( Throwable t ) throws Throwable
     {
-        close( this );
+        close( session );
     }
 
     @OnMessage
-    public void incoming( String message )
+    public void onMessage( String message )
     {
-        logger.debug( nickname + ": " + message );
-        broadcast( nickname + ": " + message );
+        broadcast( message );
     }
 
     private void broadcast( String message )
     {
-        for( Chat client : connections )
-            if( client != this ) send( client, message );
+        for( Map.Entry<String, Session> entry : clients.entrySet() )
+            if( !entry.getKey().equals( name ) )
+                send( entry.getValue(), message );
     }
 
-    private void send( Chat client, String message )
+    private void send( Session session, String message )
     {
         try
         {
-            synchronized (client)
+            synchronized (session)
             {
-                client.session.getBasicRemote().sendText( message );
+                session.getBasicRemote().sendText( name + ": " + message );
             }
         }
         catch( IOException e )
         {
-            close( client );
+            close( session );
         }
     }
 
-    private void close( Chat client )
+    private void close( Session session )
     {
         try
         {
-            client.session.close();
+            session.close();
         }
         catch( IOException e )
         {
