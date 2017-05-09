@@ -1,7 +1,7 @@
 package cs5220.websocket;
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.websocket.OnClose;
@@ -22,7 +22,7 @@ public class Chat {
 
     private Session session;
 
-    private static Map<String, Session> clients = new ConcurrentHashMap<String, Session>();
+    private static Set<Session> sessions = ConcurrentHashMap.newKeySet();
 
     private static final Logger logger = LoggerFactory.getLogger( Chat.class );
 
@@ -31,14 +31,14 @@ public class Chat {
     {
         this.name = name;
         this.session = session;
-        clients.put( name, session );
+        sessions.add( session );
         logger.info( name + " has joined." );
     }
 
     @OnClose
     public void onClose()
     {
-        clients.remove( name );
+        sessions.remove( session );
         logger.info( name + " has disconnected." );
     }
 
@@ -56,9 +56,8 @@ public class Chat {
 
     private void broadcast( String message )
     {
-        for( Map.Entry<String, Session> entry : clients.entrySet() )
-            if( !entry.getKey().equals( name ) )
-                send( entry.getValue(), message );
+        for( Session s : sessions )
+            if( s != session ) send( s, message );
     }
 
     private void send( Session session, String message )
